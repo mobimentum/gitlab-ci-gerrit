@@ -1,0 +1,11 @@
+[gitlab]
+
+	# XXX The base URL of the Gitlab instance
+	url = https://gitlab.example.com
+	
+	# XXX The PRIVATE-TOKEN of a user with read/write access
+	token = XXX
+
+	# The recheck command, used to trigger a new verification on GitLab CI
+	recheckCommand = recheck
+

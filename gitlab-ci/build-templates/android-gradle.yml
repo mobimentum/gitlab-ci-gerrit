@@ -1,0 +1,87 @@
+# Copyright 2019 Mobimentum Srl
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# @author Maurizio Pinotti
+# This template can be used as a starting point for building Android apps using GitLab CI.
+
+# --- Before script ---
+
+# XXX Set the path for $ANDROID_HOME and the $GERRIT_USER.
+before_script:
+  - export ANDROID_HOME="/opt/android-sdk-linux"
+  - export PATH="$PATH:$ANDROID_HOME/platform-tools"
+  - export GERRIT_USER="gitlab"
+  - chmod +x ./gradlew
+
+# --- Stages ---
+
+# XXX Add or remove stages here
+stages:
+  - build
+  - test
+  - verify
+
+# --- Template for all jobs ---
+
+# Jobs are only run when the pipeline is triggered by gerrit.
+.job_template: &job_definition
+  only:
+    variables:
+    - $GERRIT_COMMIT
+
+# --- Build ---
+
+lint:
+  <<: *job_definition
+  stage: build
+  script:
+    - ./gradlew -Pci --console=plain lintDebug -PbuildDir=lint
+
+# XXX By default the APK is built using "assembleDebug" task, you may want to
+# change it to assembleRelease or duplicate this task and build both.
+build:
+  <<: *job_definition
+  stage: build
+  script:
+    - pwd
+    - ./gradlew -Pci --console=plain clean assembleDebug
+#  artifacts:
+#    paths:
+#      - build/outputs/
+
+# XXX By default the APK is tested using "testDebug" task.
+debugTests:
+  <<: *job_definition
+  stage: test
+  script:
+    - ./gradlew -Pci --console=plain :app:testDebug
+
+# --- Gerrit ---
+
+# This job will set +1 on the Verified label in gerrit
+gerritSuccess:
+  <<: *job_definition
+  stage: verify
+  when: on_success
+  script:
+    - ssh -p $GERRIT_SSH_PORT $GERRIT_USER@$GERRIT_ADDRESS "gerrit review -p $CI_PROJECT_NAME --verified +1 -m $CI_PIPELINE_URL $GERRIT_COMMIT"
+
+# This job will set -1 on the Verified label in gerrit
+gerritFail:
+  <<: *job_definition
+  stage: verify
+  when: on_failure
+  script:
+    - ssh -p $GERRIT_SSH_PORT $GERRIT_USER@$GERRIT_ADDRESS "gerrit review -p $CI_PROJECT_NAME --verified -1 -m $CI_PIPELINE_URL $GERRIT_COMMIT"
+

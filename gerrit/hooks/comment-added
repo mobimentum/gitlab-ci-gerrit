@@ -1,0 +1,54 @@
+#!/usr/bin/php
+<?php
+
+# Copyright 2019 Mobimentum Srl
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+require_once(dirname(__FILE__) . '/hooks-config.php');
+require_once(dirname(__FILE__) . '/hooks-lib.php');
+
+print "### HOOK COMMENT-ADDED START " . __FILE__ . "\n";
+
+// Check required params
+$paramsOk = TRUE;
+if (empty($config['recheckCommand'])) $paramsOk = missingParam('configuration', 'recheckCommand');
+if (empty($opts['project'])) $paramsOk = missingParam('param', 'project');
+if (empty($opts['branch'])) $paramsOk = missingParam('param', 'branch');
+if (empty($opts['change-url'])) $paramsOk = missingParam('param', 'change-url');
+if (empty($opts['commit'])) $paramsOk = missingParam('param', 'commit');
+if (empty($opts['comment'])) $paramsOk = missingParam('param', 'comment');
+
+if ($paramsOk) {
+    // Check if it's a "recheck" command
+    $m = [];
+    preg_match('/Patch Set (\d+):(.+)/sim', $opts['comment'], $m);
+    $patchset = intval($m[1]);
+    $comment = trim($m[2]);
+    print "patchset=$patchset comment='$comment' recheckCommand='{$config['recheckCommand']}'\n";
+    if ($comment == $config['recheckCommand']) {
+        $command = dirname(__FILE__) . '/patchset-created '
+                . ' --project ' . $opts['project']
+                . ' --branch ' . $opts['branch']
+                . ' --change-url ' . $opts['change-url']
+                . ' --commit ' . $opts['commit']
+                . ' --patchset ' . $patchset
+                . ' --recheck recheck';
+        print "Triggering RECHECK: $command\n";
+        print shell_exec($command)."\n";
+    }
+}
+
+print "### HOOK COMMENT-ADDED END\n\n";
+
+?>

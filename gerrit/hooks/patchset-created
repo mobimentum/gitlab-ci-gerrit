@@ -1,0 +1,80 @@
+#!/usr/bin/php
+<?php
+
+# Copyright 2019 Mobimentum Srl
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+require_once(dirname(__FILE__) . '/hooks-config.php');
+require_once(dirname(__FILE__) . '/hooks-lib.php');
+
+print "### HOOK PATCHSET-CREATED START " . __FILE__ . "\n";
+
+if (IS_GERRIT && !isset($opts['recheck'])) {
+	// FIXME Wait for sync to happen
+	print "Waiting for sync...\n";
+	sleep(5);
+}
+
+// Check required params
+$paramsOk = TRUE;
+if (empty($config['url'])) $paramsOk = missingParam('gitlab-config', 'url');
+if (empty($gerritConfig['gerrit']['canonicalWebUrl'])) $paramsOk = missingParam('gerrit-config', 'canonicalWebUrl');
+if (empty($gerritConfig['sshd']['listenAddress'])) $paramsOk = missingParam('gerrit-config', 'listenAddress');
+if (empty($opts['project'])) $paramsOk = missingParam('param', 'project');
+if (empty($opts['branch'])) $paramsOk = missingParam('param', 'branch');
+if (empty($opts['change-url'])) $paramsOk = missingParam('param', 'change-url');
+if (empty($opts['commit'])) $paramsOk = missingParam('param', 'commit');
+if (empty($opts['patchset'])) $paramsOk = missingParam('param', 'patchset');
+
+if ($paramsOk) {
+	// Get project ID from project name 
+	$projectId = 0;
+	$json = getJson($config['url'] . "/api/v4/projects?simple=true&search={$opts['project']}");
+	foreach ($json as $project) {
+		if ($project->name == $opts['project']) { $projectId = $project->id; break; }
+	} 
+
+	// Get CI token from project ID
+	$tokenCI = '';
+	if ($projectId) {
+		print "Project ID: $projectId, branch: {$opts['branch']}\n";
+		$json = getJson($config['url'] . "/api/v4/projects/{$projectId}/triggers");
+		if (!empty($json)) $tokenCI = $json[0]->token; 
+	}
+	else print "Project {$opts['project']} NOT FOUND!\n";
+
+	// Use CI token to trigger the build
+	if ($tokenCI) {
+		$refId = @end(explode('/', $opts['change-url']));
+		$ref = "refs/heads/review/$refId/$refId/{$opts['patchset']}";
+		$gerritAddress = parse_url($gerritConfig['gerrit']['canonicalWebUrl'], PHP_URL_HOST);
+		$gerritSshPort = parse_url($gerritConfig['sshd']['listenAddress'], PHP_URL_PORT);
+		print "Triggering build with commit: {$opts['commit']}, ref: $ref\n";
+		$json = getJson($config['url'] . "/api/v4/projects/{$projectId}/trigger/pipeline", 
+			http_build_query([ 
+				'ref' => $ref, 
+				'variables[GERRIT_COMMIT]' => $opts['commit'], 
+				'variables[GERRIT_ADDRESS]' => $gerritAddress, 
+				'variables[GERRIT_SSH_PORT]' => $gerritSshPort,
+				'token' => $tokenCI]
+			),
+			'application/x-www-form-urlencoded');
+		var_dump($json);
+	}
+	else print "ERROR: Token CI NOT FOUND in project {$opts['project']} ({$projectId})\n";
+}
+
+print "### HOOK PATCHSET-CREATED END\n\n";
+
+?>
