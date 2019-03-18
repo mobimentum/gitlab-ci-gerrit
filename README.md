@@ -2,6 +2,8 @@
 
 This repository contains a set of scripts, configurations and templates for integrating Gerrit with GitLab CI.
 
+Detailed tutorial [here](TUTORIAL.md).
+
 ## CI templates
 
 The `gitlab-ci/build-templates` folder contains gitlab-ci files that can be used to build software developed with various technologies:
@@ -37,11 +39,11 @@ Additional Gerrit configuration (`etc/replication.config`):
 ```
 # GitLab cannot read refs/for/*, we must push patchsets as branches
 [remote "gitlab"]
-	url = gitlab.example.com
+	url = git@gitlab.example.com:groupname/${name}.git 
 	push = +refs/heads/*:refs/heads/*
 	push = +refs/tags/*:refs/tags/*
 	push = +refs/changes/*:refs/heads/review/*
 	replicationDelay = 0
 	createMissingRepositories = true
 ```
-
+(customize `gitlab.example.com` and `groupname` with a group name your gerrit user has access to).
