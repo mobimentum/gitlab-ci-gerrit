@@ -29,6 +29,7 @@ if (IS_GERRIT && !isset($opts['recheck'])) {
 // Check required params
 $paramsOk = TRUE;
 if (empty($config['url'])) $paramsOk = missingParam('gitlab-config', 'url');
+if (empty($config['gerritUser'])) $paramsOk = missingParam('gitlab-config', 'gerritUser');
 if (empty($gerritConfig['gerrit']['canonicalWebUrl'])) $paramsOk = missingParam('gerrit-config', 'canonicalWebUrl');
 if (empty($gerritConfig['sshd']['listenAddress'])) $paramsOk = missingParam('gerrit-config', 'listenAddress');
 if (empty($opts['project'])) $paramsOk = missingParam('param', 'project');
@@ -51,13 +52,27 @@ if ($paramsOk) {
 		print "Project ID: $projectId, branch: {$opts['branch']}\n";
 		$json = getJson($config['url'] . "/api/v4/projects/{$projectId}/triggers");
 		if (!empty($json)) $tokenCI = $json[0]->token; 
+
+		// Try to create a CI token (if missing)
+		if (!$tokenCI) {
+			print "Token CI is missing, trying to create a new one...\n";
+
+			$headers = [ "Content-Type: application/x-www-form-urlencoded", "Private-Token: ".$config['token']];
+			$postdata = http_build_query([ 'description' => 'Gerrit']); 
+			list($headers, $body, $code) = doRequest($config['url'] . "/api/v4/projects/{$projectId}/triggers", $postdata, $headers);
+			print "Got response: $code\n";
+
+			$json = getJson($config['url'] . "/api/v4/projects/{$projectId}/triggers");
+			if (!empty($json)) $tokenCI = $json[0]->token; 
+		}
 	}
 	else print "Project {$opts['project']} NOT FOUND!\n";
 
 	// Use CI token to trigger the build
 	if ($tokenCI) {
 		$refId = @end(explode('/', $opts['change-url']));
-		$ref = "refs/heads/review/$refId/$refId/{$opts['patchset']}";
+		$refIdBase = intval($refId) - 100; // FIXME
+		$ref = "refs/heads/review/$refIdBase/$refId/{$opts['patchset']}";
 		$gerritAddress = parse_url($gerritConfig['gerrit']['canonicalWebUrl'], PHP_URL_HOST);
 		$gerritSshPort = parse_url($gerritConfig['sshd']['listenAddress'], PHP_URL_PORT);
 		print "Triggering build with commit: {$opts['commit']}, ref: $ref\n";
@@ -65,6 +80,7 @@ if ($paramsOk) {
 			http_build_query([ 
 				'ref' => $ref, 
 				'variables[GERRIT_COMMIT]' => $opts['commit'], 
+				'variables[GERRIT_USER]' => $config['gerritUser'],
 				'variables[GERRIT_ADDRESS]' => $gerritAddress, 
 				'variables[GERRIT_SSH_PORT]' => $gerritSshPort,
 				'token' => $tokenCI]
@@ -78,3 +94,4 @@ if ($paramsOk) {
 print "### HOOK PATCHSET-CREATED END\n\n";
 
 ?>
+

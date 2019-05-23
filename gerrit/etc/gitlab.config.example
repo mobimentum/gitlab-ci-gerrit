@@ -2,7 +2,10 @@
 
 	# XXX The base URL of the Gitlab instance
 	url = https://gitlab.example.com
-	
+
+	# How Gitlab CI presents to Gerrit when adding +1
+	gerritUser = gitlab
+
 	# XXX The PRIVATE-TOKEN of a user with read/write access
 	token = XXX
 
