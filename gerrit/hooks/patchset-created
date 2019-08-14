@@ -71,7 +71,7 @@ if ($paramsOk) {
 	// Use CI token to trigger the build
 	if ($tokenCI) {
 		$refId = @end(explode('/', $opts['change-url']));
-		$refIdBase = intval($refId) - 100; // FIXME
+		$refIdBase = intval(substr($refId, 1)); // FIXME
 		$ref = "refs/heads/review/$refIdBase/$refId/{$opts['patchset']}";
 		$gerritAddress = parse_url($gerritConfig['gerrit']['canonicalWebUrl'], PHP_URL_HOST);
 		$gerritSshPort = parse_url($gerritConfig['sshd']['listenAddress'], PHP_URL_PORT);
