@@ -22,12 +22,12 @@ print "### HOOK COMMENT-ADDED START " . __FILE__ . "\n";
 
 // Check required params
 $paramsOk = TRUE;
-if (empty($config['recheckCommand'])) $paramsOk = missingParam('configuration', 'recheckCommand');
-if (empty($opts['project'])) $paramsOk = missingParam('param', 'project');
-if (empty($opts['branch'])) $paramsOk = missingParam('param', 'branch');
-if (empty($opts['change-url'])) $paramsOk = missingParam('param', 'change-url');
-if (empty($opts['commit'])) $paramsOk = missingParam('param', 'commit');
-if (empty($opts['comment'])) $paramsOk = missingParam('param', 'comment');
+if (empty($config['recheckCommand'])) $paramsOk = missingParam('configuration', 'recheckCommand') && $paramsOk;
+if (empty($opts['project'])) $paramsOk = missingParam('param', 'project') && $paramsOk;
+if (empty($opts['branch'])) $paramsOk = missingParam('param', 'branch') && $paramsOk;
+if (empty($opts['change-url'])) $paramsOk = missingParam('param', 'change-url') && $paramsOk;
+if (empty($opts['commit'])) $paramsOk = missingParam('param', 'commit') && $paramsOk;
+if (empty($opts['comment'])) $paramsOk = missingParam('param', 'comment') && $paramsOk;
 
 if ($paramsOk) {
     // Check if it's a "recheck" command

@@ -22,18 +22,71 @@ function missingParam($type, $name) {
     return FALSE;
 }
 
+/** Get project ID from project name */
+function getProjectId($projectName) {
+	global $config;
+
+	$projectId = 0;
+        $json = getJson($config['url'] . "/api/v4/projects?simple=true&search={$projectName}");
+        foreach ($json as $project) {
+                if ($project->name == $projectName) { $projectId = $project->id; break; }
+        } 
+
+	return $projectId;
+}
+
+/** Get branch name from ref ID */
+function getBranchName($changeUrl, $patchsetId=0) {
+	$refId = intval(@end(explode('/', $changeUrl)));
+	$refIdBase = intval(substr($refId, -2)); // FIXME
+
+	return "review/$refIdBase/$refId" . ($patchsetId ? "/$patchsetId" : "");
+}
+
+/** Delete all remote branches of a change */
+function deleteGitlabBranches($projectId, $changeUrl) {
+	// Get branch name
+	$branchName = getBranchName($changeUrl);
+
+	// Delete all patchsets
+	// XXX: better option could be listing branches with "/projects/:id/repository/branches"
+	$i = 1;
+	do {
+		$result = deleteGitlabBranch($projectId, $branchName, $i);
+		print "DELETE of branch $branchName ($i): $result\n";
+		$i++;
+	}
+	while ($result == "OK");
+
+	// Delete "meta" branch
+	sleep(2); // FIXME: give time to replication plugin to sync it or it'll create the branch again
+	$result = deleteGitlabBranch($projectId, $branchName, "meta");
+	print "DELETE of branch $branchName (meta): $result\n";
+}
+
+/** Delete a branch on mirroring remote */
+function deleteGitlabBranch($projectId, $branchName, $patchsetId) {
+	global $config;
+
+	$url = $config['url'] . "/api/v4/projects/{$projectId}/repository/branches/" . urlencode($branchName . '/' . $patchsetId);
+	$json = getJson($url, NULL, NULL, 'DELETE');
+
+	return $json ? $json->message : "OK"; 
+}
+
 /** Perform an HTTP GET/POST request with a JSON payload. */
-function getJson($url, $postdata=NULL, $contentType='application/json; charset=utf-8') {
+function getJson($url, $postdata=NULL, $contentType=NULL, $method=NULL) {
 	global $config;
 
 	$headers = [ "Content-Type: $contentType", "Private-Token: ".$config['token']];
-	list($headers, $body, $code) = doRequest($url, $postdata, $headers);
+	if (!$contentType) $contentType = 'application/json; charset=utf-8';
+	list($headers, $body, $code) = doRequest($url, $postdata, $headers, $method);
 
 	return json_decode($body);
 }
 
-/** Perform an HTTP GET/POST request with a generic payload. */
-function doRequest($url, $postdata=NULL, $headers=[]) {
+/** Perform an HTTP request with a generic payload. */
+function doRequest($url, $postdata=NULL, $headers=[], $method=NULL) {
 	$ch = curl_init(); 
 
 	// Headers
@@ -46,6 +99,10 @@ function doRequest($url, $postdata=NULL, $headers=[]) {
 	if (!empty($postdata)) {
 		curl_setopt($ch, CURLOPT_POST, TRUE);
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $postdata);
+	}
+	
+	if ($method) {
+		curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method); 
 	}
 
 	// Misc options
@@ -66,5 +123,3 @@ function doRequest($url, $postdata=NULL, $headers=[]) {
 
 	return array($headers, $body, $code);
 }
-
-?>
