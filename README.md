@@ -1,4 +1,4 @@
-# GitlLab CI <-> Gerrit
+# GitLab CI <-> Gerrit
 
 This repository contains a set of scripts, configurations and templates for integrating Gerrit with GitLab CI.
 
